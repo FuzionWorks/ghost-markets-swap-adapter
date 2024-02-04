@@ -5,7 +5,7 @@ use kujira::{CallbackData, Denom};
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: Addr,
-    pub vault_config: Vec<VaultConfig>,
+    pub debt_config: Vec<DebtConfig>,
 }
 
 #[cw_serde]
@@ -15,7 +15,7 @@ pub struct MigrateMsg {}
 pub enum ExecuteMsg {
     UpdateConfig {
         owner: Option<Addr>,
-        vault_config: Option<Vec<VaultConfig>>,
+        debt_config: Option<Vec<DebtConfig>>,
     },
     /* Compatibility with FIN */
     Swap {
@@ -45,13 +45,13 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
-pub struct VaultConfig {
-    pub address: Addr,
+pub struct DebtConfig {
     pub denom: Denom,
+    pub debt_denom: Denom,
 }
 
 #[cw_serde]
 pub struct Config {
     pub owner: Addr,
-    pub vault_config: Vec<VaultConfig>,
+    pub debt_config: Vec<DebtConfig>,
 }

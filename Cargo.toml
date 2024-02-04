@@ -1,5 +1,5 @@
 [package]
-name = "ghost-vault-swap-adapter"
+name = "ghost-markets-swap-adapter"
 version = "1.0.0"
 authors = ["Fuzion <hello@fuzion.app>"]
 edition = "2021"

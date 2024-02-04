@@ -381,7 +381,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ghost-vault-swap-adapter"
+name = "ghost-markets-swap-adapter"
 version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",

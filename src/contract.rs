@@ -12,7 +12,7 @@ use crate::msg::Config;
 use crate::state::CONFIG;
 use crate::{ContractError, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
-const CONTRACT_NAME: &str = "fuzion/ghost-vault-swap-adapter";
+const CONTRACT_NAME: &str = "fuzion/ghost-markets-swap-adapter";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[entry_point]
@@ -32,7 +32,7 @@ pub fn instantiate(
 
     let config = Config {
         owner: msg.owner,
-        vault_config: msg.vault_config,
+        debt_config: msg.debt_config,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -48,16 +48,13 @@ pub fn execute(
 ) -> Result<Response<KujiraMsg>, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
     match msg {
-        ExecuteMsg::UpdateConfig {
-            owner,
-            vault_config,
-        } => {
+        ExecuteMsg::UpdateConfig { owner, debt_config } => {
             ensure!(info.sender == config.owner, ContractError::Unauthorized {});
             if let Some(owner) = owner {
                 config.owner = owner;
             }
-            if let Some(vault_config) = vault_config {
-                config.vault_config = vault_config;
+            if let Some(debt_config) = debt_config {
+                config.debt_config = debt_config;
             }
             CONFIG.save(deps.storage, &config)?;
             Ok(Response::default())
@@ -68,39 +65,30 @@ pub fn execute(
             let config = CONFIG.load(deps.storage)?;
 
             let denom_config = config
-                .vault_config
+                .debt_config
                 .iter()
                 .find(|x| x.denom.to_string() == received.denom);
 
-            let msg =
-                if let Some(denom_config) = denom_config {
-                    let msg = ghost::receipt_vault::ExecuteMsg::Deposit(
-                        ghost::receipt_vault::DepositMsg { callback: None },
-                    );
-                    let addr = &denom_config.address;
-                    wasm_execute(addr, &msg, info.funds)?
-                } else {
-                    ensure!(
-                        received.denom.starts_with("factory/"),
-                        ContractError::InvalidDenom(received.denom)
-                    );
+            ensure!(
+                denom_config.is_some(),
+                ContractError::InvalidDenom(received.denom)
+            );
 
-                    let split = received.denom.split('/').collect::<Vec<&str>>();
-                    ensure!(
-                        split.len() == 3,
-                        ContractError::InvalidDenom(received.denom)
-                    );
-                    ensure!(
-                        split[2] == "urcpt",
-                        ContractError::InvalidDenom(received.denom)
-                    );
+            let debt_denom = denom_config.unwrap().debt_denom.to_string();
+            let split = debt_denom.split('/').collect::<Vec<&str>>();
 
-                    let msg = ghost::receipt_vault::ExecuteMsg::Withdraw(
-                        ghost::receipt_vault::WithdrawMsg { callback: None },
-                    );
-                    let addr = split[1];
-                    wasm_execute(addr, &msg, info.funds)?
-                };
+            ensure!(
+                split.len() == 3,
+                ContractError::InvalidDenom(received.denom)
+            );
+
+            let msg = ghost::market::ExecuteMsg::Deposit(ghost::market::DepositMsg {
+                position_holder: None,
+            });
+
+            let addr = split[2];
+            let wasm_msg = wasm_execute(addr, &msg, info.funds)?;
+
             let post_swap_msg = wasm_execute(
                 env.contract.address,
                 &ExecuteMsg::PostSwap {
@@ -109,7 +97,9 @@ pub fn execute(
                 },
                 vec![],
             )?;
-            Ok(Response::new().add_message(msg).add_message(post_swap_msg))
+            Ok(Response::new()
+                .add_message(wasm_msg)
+                .add_message(post_swap_msg))
         }
         ExecuteMsg::PostSwap { callback, sender } => {
             ensure!(
