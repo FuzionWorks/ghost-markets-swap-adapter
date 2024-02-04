@@ -82,7 +82,7 @@ pub fn execute(
                 ContractError::InvalidDenom(received.denom)
             );
 
-            let msg = ghost::market::ExecuteMsg::Deposit(ghost::market::DepositMsg {
+            let msg = ghost::market::ExecuteMsg::Repay(ghost::market::RepayMsg {
                 position_holder: None,
             });
 
